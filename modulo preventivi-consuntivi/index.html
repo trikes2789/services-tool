@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Preventivi & Consuntivi - Tool Smart</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+    
+    <style>
+        :root {
+            --primary: #0b2d51; 
+            --accent: #fdb913;
+            --bg: #f0f2f5;
+            --text: #333;
+            --white: #ffffff;
+            --error: #dc3545;
+            --success: #28a745;
+            --border: #dee2e6;
+            --gray-box: #6c757d;
+        }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 10px; /* Ridotto padding body per mobile */
+            line-height: 1.5;
+            font-size: 16px; /* Base 16px per evitare zoom iOS */
+        }
+
+        .container { max-width: 1000px; margin: 0 auto; }
+
+        .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .btn-reset {
+            background-color: #fff; color: #495057; border: 1px solid #ced4da;
+            padding: 8px 15px; border-radius: 50px; cursor: pointer; font-size: 0.9rem;
+            display: flex; align-items: center; gap: 5px; font-weight: 600;
+        }
+
+        header { text-align: center; margin-bottom: 25px; }
+        header h1 { color: var(--primary); margin: 0; font-size: 1.6rem; text-transform: uppercase; letter-spacing: 0.5px; }
+        header h4 { margin: 5px 0; color: #555; }
+        header p { color: #666; margin-top: 5px; font-size: 0.9rem; }
+        
+        header a { color: var(--primary); text-decoration: none; font-weight: bold; border-bottom: 1px dotted var(--primary); }
+
+        .card {
+            background: var(--white); border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            padding: 20px; margin-bottom: 20px; border-top: 4px solid var(--primary);
+            width: 100%;
+        }
+
+        .card h3 {
+            margin-top: 0; color: var(--primary); border-bottom: 1px solid var(--border);
+            padding-bottom: 10px; margin-bottom: 15px; font-size: 1.1rem;
+        }
+
+        /* GRIGLIE RESPONSIVE */
+        .grid-2, .grid-3 { display: grid; gap: 15px; width: 100%; }
+        .grid-2 { grid-template-columns: 1fr 1fr; }
+        .grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+        
+        @media (max-width: 768px) {
+            .grid-2, .grid-3 { grid-template-columns: 1fr; }
+            .card { padding: 15px; } /* Meno padding su mobile */
+            header h1 { font-size: 1.4rem; }
+        }
+
+        label { display: block; margin-bottom: 6px; font-weight: 600; font-size: 0.9rem; color: #555; }
+        
+        input[type="text"], input[type="date"], input[type="number"], select, input[type="time"], textarea {
+            width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px;
+            font-size: 16px; /* Importante per mobile */
+            background: #fff; appearance: none; font-family: inherit;
+        }
+
+        /* Toggle Switch */
+        .toggle-container { display: flex; justify-content: center; margin-bottom: 20px; }
+        .toggle-btn {
+            padding: 10px 20px; border: 1px solid var(--primary); cursor: pointer; font-weight: bold;
+            background: #fff; color: var(--primary); flex: 1; max-width: 150px; text-align: center;
+        }
+        .toggle-btn.active { background: var(--primary); color: #fff; }
+        .toggle-btn:first-child { border-radius: 8px 0 0 8px; }
+        .toggle-btn:last-child { border-radius: 0 8px 8px 0; }
+
+        /* UNIFORMITA' BOX DI INSERIMENTO */
+        .shift-entry-box {
+            background-color: #f8f9fa; 
+            border: 1px dashed var(--primary); 
+            padding: 15px; 
+            border-radius: 8px;
+            width: 100%; /* Forza larghezza piena */
+            margin-bottom: 15px;
+        }
+
+        /* Stile specifico per box grigi (Materiali) se desiderato diverso, altrimenti uniformiamo */
+        .box-gray { border-color: var(--gray-box); }
+
+        .btn-add {
+            background-color: var(--success); color: white; border: none; width: 100%;
+            padding: 14px; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 15px;
+            text-transform: uppercase; letter-spacing: 0.5px; font-size: 1rem;
+        }
+        
+        /* TABELLE RESPONSIVE */
+        .table-responsive {
+            width: 100%;
+            overflow-x: auto; /* Scroll orizzontale su mobile */
+            -webkit-overflow-scrolling: touch;
+            margin-top: 15px;
+            border-radius: 8px;
+            border: 1px solid #eee;
+        }
+
+        .results-table {
+            width: 100%; border-collapse: collapse; font-size: 0.95rem; min-width: 500px; /* Forza larghezza minima per leggibilità */
+        }
+        .results-table th { background: var(--primary); color: white; padding: 12px 10px; text-align: left; white-space: nowrap; }
+        .results-table th.gray-header { background: var(--gray-box); }
+        .results-table td { padding: 12px 10px; border-bottom: 1px solid #ddd; vertical-align: top; }
+        .results-table tr:nth-child(even) { background-color: #f9f9f9; }
+        
+        .row-details { font-size: 0.85em; color: #666; display: block; margin-top: 4px; }
+        .activity-highlight { color: var(--primary); font-weight: 600; font-style: italic; display: block; margin-bottom: 2px;}
+        .price-tag { font-weight: bold; color: var(--primary); display: block; }
+        .code-tag { background: #e9ecef; padding: 2px 6px; border-radius: 4px; font-size: 0.8em; font-family: monospace; border: 1px solid #ccc; display: inline-block; margin-top: 2px;}
+
+        .btn-delete {
+            background: #ffcccc; color: #cc0000; border: none; padding: 6px 12px;
+            border-radius: 4px; cursor: pointer; font-size: 0.9em; font-weight: bold;
+        }
+        /* Button delete più grande su mobile */
+        @media (max-width: 768px) {
+            .btn-delete { padding: 10px 15px; }
+        }
+
+        .total-section {
+            text-align: right; margin-top: 20px; font-size: 1.3rem; font-weight: bold;
+            color: var(--primary); border-top: 2px solid var(--primary); padding-top: 15px;
+        }
+
+        .btn-generate {
+            display: block; width: 100%; padding: 18px; 
+            background: linear-gradient(135deg, var(--primary) 0%, #1a4a7c 100%);
+            color: white; font-size: 1.1rem; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;
+            border: none; border-radius: 8px; cursor: pointer; margin-top: 25px; margin-bottom: 30px;
+            box-shadow: 0 4px 15px rgba(11, 45, 81, 0.3);
+        }
+
+        /* Checkbox Container */
+        .checkbox-wrapper {
+            display: flex; align-items: center; height: 100%; padding-top: 28px;
+        }
+        @media (max-width: 768px) {
+            .checkbox-wrapper { padding-top: 10px; padding-bottom: 10px; }
+        }
+
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="top-bar">
+        <button type="button" class="btn-reset" onclick="resetApp()">🗑️ Reset</button>
+    </div>
+
+    <header>
+        <div class="toggle-container">
+            <div class="toggle-btn active" id="btnPrev" onclick="setMode('Preventivo')">PREVENTIVO</div>
+            <div class="toggle-btn" id="btnCons" onclick="setMode('Consuntivo')">CONSUNTIVO</div>
+        </div>
+        <h1 id="pageTitle">PREVENTIVO</h1>
+        <h4>Randstad Service srl</h4>
+        <p>by <a href="https://www.digitrikpro.com" target="_blank">www.digitrikpro.com</a></p>
+    </header>
+
+    <form id="mainForm">
+        <div class="card">
+            <h3>👤 Dati Richiesta</h3>
+            <div class="grid-2">
+                <div>
+                    <label>Richiedente</label>
+                    <input type="text" id="clientName" placeholder="Es. Nome Azienda o rif. Richiedente" required>
+                </div>
+                <div>
+                    <label>Evento intervento</label>
+                    <input type="text" id="projectRef" placeholder="Es. Facchinaggio Evento X" required>
+                </div>
+            </div>
+            <div style="margin-top: 15px;">
+                <label>Compilato da</label>
+                <input type="text" id="compilerName" placeholder="Il tuo nome" required>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>📅 Inserimento Turni & Risorse</h3>
+            <p style="font-size:0.9em; color:#666; margin-bottom:15px;">
+                Inserisci orari (es. 21:00). Il sistema calcola automaticamente le tariffe in base ai giorni e gli orari.
+            </p>
+            
+            <div class="shift-entry-box">
+                <div class="grid-3">
+                    <div>
+                        <label>Data</label>
+                        <input type="date" id="shiftDate">
+                    </div>
+                    <div>
+                        <label>Ora Inizio</label>
+                        <input type="time" id="shiftStart" value="08:00">
+                    </div>
+                    <div>
+                        <label>Ora Fine</label>
+                        <input type="time" id="shiftEnd" value="17:00">
+                    </div>
+                </div>
+                
+                <div class="grid-2" style="margin-top:15px;">
+                    <div>
+                        <label>N. Risorse</label>
+                        <input type="number" id="shiftResources" value="1" min="1">
+                    </div>
+                    <div class="checkbox-wrapper">
+                        <input type="checkbox" id="isHoliday" style="width:25px; height:25px; margin-right:10px;">
+                        <label for="isHoliday" style="margin:0; cursor:pointer; color:#dc3545; line-height: 1.2;">Giorno Festivo?<br><span style="font-weight:normal; font-size:0.8em;">(Rosso calendario)</span></label>
+                    </div>
+                </div>
+
+                <div style="margin-top: 15px;">
+                    <label>Attività / Causale Specifica</label>
+                    <input type="text" id="shiftActivity" placeholder="Es. Carico/Scarico, Pulizia..." required>
+                </div>
+
+                <button type="button" class="btn-add" onclick="addShift()">➕ Aggiungi al Calcolo</button>
+            </div>
+
+            <div class="table-responsive">
+                <table class="results-table" id="tableList">
+                    <thead>
+                        <tr>
+                            <th style="width: 50%">Dettaglio</th>
+                            <th style="width: 20%">Tariffa/Cod</th>
+                            <th style="width: 20%">Totale</th>
+                            <th style="width: 10%"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>📦 Materiali Utilizzati</h3>
+            
+            <div class="shift-entry-box box-gray">
+                <div class="grid-3">
+                    <div>
+                        <label>Materiale</label>
+                        <input type="text" id="matName" placeholder="Es. Bancali">
+                    </div>
+                    <div>
+                        <label>Quantità</label>
+                        <input type="number" id="matQty" placeholder="0" min="1">
+                    </div>
+                    <div>
+                        <label>Prezzo Unit. (€)</label>
+                        <input type="number" id="matPrice" placeholder="0.00" step="0.01">
+                    </div>
+                </div>
+                <button type="button" class="btn-add" onclick="addMaterial()">➕ Aggiungi Materiale</button>
+            </div>
+
+            <div class="table-responsive">
+                <table class="results-table">
+                    <thead>
+                        <tr>
+                            <th class="gray-header" style="width: 50%;">Materiale</th>
+                            <th class="gray-header" style="width: 20%;">Q.tà x Prezzo</th>
+                            <th class="gray-header" style="width: 20%;">Totale</th>
+                            <th class="gray-header" style="width: 10%;"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="materialBody">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>📝 Note & Osservazioni</h3>
+            <div class="shift-entry-box">
+                <label>Nota</label>
+                <textarea id="noteText" rows="2" placeholder="Note o dettagli aggiuntivi..."></textarea>
+                <button type="button" class="btn-add" onclick="addNote()">➕ Aggiungi Nota</button>
+            </div>
+
+            <div class="table-responsive">
+                <table class="results-table">
+                    <tbody id="noteBody">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="total-section" id="totalDisplay">
+                Totale Complessivo: € 0,00
+            </div>
+        </div>
+
+        <button type="button" class="btn-generate" onclick="generatePDF()">📄 Scarica PDF</button>
+    </form>
+</div>
+
+<script>
+    // --- STATO APPLICAZIONE ---
+    let appMode = "Preventivo";
+    let shifts = []; 
+    let materials = []; 
+    let notes = []; 
+
+    // --- CONFIGURAZIONE PREZZI ---
+    const RATES = {
+        STD: { price: 27, code: "S30" }, 
+        NIGHT: { price: 28, code: "S50" }, 
+        SAT: { price: 28, code: "S50" }, 
+        HOL_DAY: { price: 28, code: "S65" }, 
+        HOL_NIGHT: { price: 30, code: "S75" }
+    };
+
+    function setMode(mode) {
+        appMode = mode;
+        document.getElementById('pageTitle').innerText = mode.toUpperCase();
+        document.getElementById('btnPrev').classList.toggle('active', mode === 'Preventivo');
+        document.getElementById('btnCons').classList.toggle('active', mode === 'Consuntivo');
+    }
+
+    // --- CORE LOGIC: SHIFTS ---
+    function addShift() {
+        const dateStr = document.getElementById('shiftDate').value;
+        const startStr = document.getElementById('shiftStart').value;
+        const endStr = document.getElementById('shiftEnd').value;
+        const resources = parseInt(document.getElementById('shiftResources').value);
+        const manualHoliday = document.getElementById('isHoliday').checked;
+        const activityText = document.getElementById('shiftActivity').value || "Servizio Generico";
+
+        if (!dateStr || !startStr || !endStr || !resources) {
+            alert("Compila tutti i campi data, ora e risorse.");
+            return;
+        }
+
+        const dateObj = new Date(dateStr);
+        const dayOfWeek = dateObj.getDay(); 
+        let isSaturday = (dayOfWeek === 6);
+        let isSundayOrHoliday = (dayOfWeek === 0 || manualHoliday);
+
+        const startMin = timeToMinutes(startStr);
+        let endMin = timeToMinutes(endStr);
+        
+        if (endMin <= startMin) { endMin += 1440; }
+
+        let segments = [];
+        
+        function getRateForMinute(min) {
+            let normalized = min % 1440;
+            let isNight = (normalized >= 1320 || normalized < 360);
+
+            if (isSundayOrHoliday) {
+                return isNight ? RATES.HOL_NIGHT : RATES.HOL_DAY;
+            } else if (isSaturday) {
+                return RATES.SAT;
+            } else {
+                return isNight ? RATES.NIGHT : RATES.STD;
+            }
+        }
+
+        let currentSegment = {
+            start: startMin,
+            rate: getRateForMinute(startMin),
+            minutes: 0
+        };
+
+        for (let m = startMin; m < endMin; m++) {
+            let rate = getRateForMinute(m);
+            if (rate.code !== currentSegment.rate.code || rate.price !== currentSegment.rate.price) {
+                segments.push({...currentSegment});
+                currentSegment = { start: m, rate: rate, minutes: 0 };
+            }
+            currentSegment.minutes++;
+        }
+        segments.push(currentSegment);
+
+        segments.forEach(seg => {
+            const hours = seg.minutes / 60;
+            const cost = hours * seg.rate.price * resources;
+            let segStart = minutesToTime(seg.start);
+            let segEnd = minutesToTime(seg.start + seg.minutes);
+
+            shifts.push({
+                id: Date.now() + Math.random(),
+                date: dateStr,
+                activity: activityText,
+                timeRange: `${segStart} - ${segEnd}`,
+                resources: resources,
+                hours: hours,
+                ratePrice: seg.rate.price,
+                rateCode: seg.rate.code,
+                totalCost: cost
+            });
+        });
+
+        renderList();
+        document.getElementById('shiftActivity').value = "";
+    }
+
+    // --- CORE LOGIC: MATERIALS ---
+    function addMaterial() {
+        const name = document.getElementById('matName').value;
+        const qty = parseFloat(document.getElementById('matQty').value);
+        const price = parseFloat(document.getElementById('matPrice').value);
+
+        if(!name || !qty || isNaN(price)) {
+            alert("Compila nome, quantità e prezzo del materiale");
+            return;
+        }
+
+        materials.push({
+            id: Date.now() + Math.random(),
+            name: name,
+            qty: qty,
+            price: price,
+            total: qty * price
+        });
+
+        document.getElementById('matName').value = "";
+        document.getElementById('matQty').value = "";
+        document.getElementById('matPrice').value = "";
+        renderMaterials();
+    }
+
+    // --- CORE LOGIC: NOTES ---
+    function addNote() {
+        const text = document.getElementById('noteText').value;
+        if(!text) { alert("Scrivi qualcosa nella nota."); return; }
+
+        notes.push({ id: Date.now() + Math.random(), text: text });
+        document.getElementById('noteText').value = "";
+        renderNotes();
+    }
+
+    // --- RENDERING ---
+    function renderList() {
+        const tbody = document.getElementById('tableBody');
+        tbody.innerHTML = "";
+        shifts.sort((a,b) => (a.date > b.date) ? 1 : -1);
+
+        shifts.forEach(shift => {
+            const tr = document.createElement('tr');
+            const dateFmt = shift.date.split('-').reverse().join('/');
+            
+            tr.innerHTML = `
+                <td>
+                    <strong>${dateFmt}</strong> | ${shift.resources} Risorse<br>
+                    <span class="activity-highlight">${shift.activity}</span>
+                    <span class="row-details">Orario: ${shift.timeRange} (${shift.hours.toFixed(2)}h)</span>
+                </td>
+                <td>
+                    <span class="price-tag">${shift.ratePrice} €/h</span>
+                    <span class="code-tag">${shift.rateCode}</span>
+                </td>
+                <td><strong>${shift.totalCost.toFixed(2)} €</strong></td>
+                <td style="text-align:right;">
+                    <button class="btn-delete" onclick="removeShift(${shift.id})">X</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+        updateGlobalTotal();
+    }
+
+    function renderMaterials() {
+        const tbody = document.getElementById('materialBody');
+        tbody.innerHTML = "";
+        materials.forEach(m => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><strong>${m.name}</strong></td>
+                <td>${m.qty} x ${m.price.toFixed(2)} €</td>
+                <td><strong>${m.total.toFixed(2)} €</strong></td>
+                <td style="text-align:right;">
+                    <button class="btn-delete" onclick="removeMaterial(${m.id})">X</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+        updateGlobalTotal();
+    }
+
+    function renderNotes() {
+        const tbody = document.getElementById('noteBody');
+        tbody.innerHTML = "";
+        notes.forEach(n => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td style="width:90%; font-style:italic;">${n.text}</td>
+                <td style="width:10%; text-align:right;">
+                    <button class="btn-delete" onclick="removeNote(${n.id})">X</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    // --- ACTIONS ---
+    function removeShift(id) { shifts = shifts.filter(s => s.id !== id); renderList(); }
+    function removeMaterial(id) { materials = materials.filter(m => m.id !== id); renderMaterials(); }
+    function removeNote(id) { notes = notes.filter(n => n.id !== id); renderNotes(); }
+
+    function updateGlobalTotal() {
+        let shiftTotal = shifts.reduce((acc, curr) => acc + curr.totalCost, 0);
+        let matTotal = materials.reduce((acc, curr) => acc + curr.total, 0);
+        document.getElementById('totalDisplay').innerText = `Totale Complessivo: € ${(shiftTotal + matTotal).toFixed(2)}`;
+    }
+
+    function resetApp() {
+        if(confirm("Cancellare tutti i dati inseriti?")) {
+            shifts = []; materials = []; notes = [];
+            document.getElementById('mainForm').reset();
+            document.getElementById('shiftDate').valueAsDate = new Date();
+            renderList(); renderMaterials(); renderNotes();
+        }
+    }
+
+    // --- UTILS ---
+    function timeToMinutes(t) { const [h, m] = t.split(':').map(Number); return h * 60 + m; }
+    function minutesToTime(m) {
+        let normalized = m % 1440;
+        let h = Math.floor(normalized / 60);
+        let min = normalized % 60;
+        return `${String(h).padStart(2,'0')}:${String(min).padStart(2,'0')}`;
+    }
+
+    // --- PDF GENERATION ---
+    async function generatePDF() {
+        if (shifts.length === 0 && materials.length === 0 && notes.length === 0) {
+            alert("Inserisci almeno un dato per generare il PDF."); return;
+        }
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        
+        const client = document.getElementById('clientName').value || "Cliente";
+        const project = document.getElementById('projectRef').value || "Generico";
+        const compiler = document.getElementById('compilerName').value || "Operatore";
+        const today = new Date().toLocaleDateString('it-IT');
+
+        // Header
+        doc.setFillColor(11, 45, 81); 
+        doc.rect(0, 0, 210, 30, "F");
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(22);
+        doc.setFont("helvetica", "bold");
+        doc.text(appMode.toUpperCase(), 105, 20, null, null, "center");
+
+        // Info
+        let y = 45;
+        doc.setTextColor(0, 0, 0);
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        doc.text(`Cliente: ${client}`, 14, y);
+        doc.text(`Rif. Progetto: ${project}`, 14, y + 6);
+        doc.text(`Data Documento: ${today}`, 14, y + 12);
+        doc.text(`Compilato da: ${compiler}`, 14, y + 18);
+
+        let finalY = y + 25;
+        let shiftTotal = 0;
+
+        // Turni Table
+        if (shifts.length > 0) {
+            let shiftBody = [];
+            shifts.forEach(s => {
+                shiftTotal += s.totalCost;
+                const dateFmt = s.date.split('-').reverse().join('/');
+                shiftBody.push([
+                    dateFmt,
+                    `${s.activity}\n${s.resources} ris. (${s.timeRange})`, 
+                    s.rateCode,
+                    `${s.ratePrice} €`,
+                    `${s.totalCost.toFixed(2)} €`
+                ]);
+            });
+            shiftBody.push([
+                { content: 'Totale Servizi', colSpan: 4, styles: { halign: 'right', fontStyle: 'bold' } },
+                { content: `${shiftTotal.toFixed(2)} €`, styles: { fontStyle: 'bold' } }
+            ]);
+
+            doc.text("Dettaglio Servizi:", 14, finalY - 2);
+            doc.autoTable({
+                startY: finalY,
+                head: [['Data', 'Attività & Dettagli', 'Cod', 'Tariffa', 'Importo']],
+                body: shiftBody,
+                theme: 'grid',
+                headStyles: { fillColor: [11, 45, 81] },
+                columnStyles: {
+                    0: { cellWidth: 35 },
+                    2: { cellWidth: 15, halign: 'center' },
+                    3: { cellWidth: 20, halign: 'right' },
+                    4: { cellWidth: 25, halign: 'right' }
+                },
+                styles: { fontSize: 10, cellPadding: 4 }
+            });
+            finalY = doc.lastAutoTable.finalY + 15;
+        }
+
+        // Materiali Table
+        let matTotal = 0;
+        if (materials.length > 0) {
+            let matBody = [];
+            materials.forEach(m => {
+                matTotal += m.total;
+                matBody.push([ m.name, m.qty, `${m.price.toFixed(2)} €`, `${m.total.toFixed(2)} €` ]);
+            });
+            matBody.push([
+                { content: 'Totale Materiali', colSpan: 3, styles: { halign: 'right', fontStyle: 'bold' } },
+                { content: `${matTotal.toFixed(2)} €`, styles: { fontStyle: 'bold' } }
+            ]);
+
+            if (finalY > 240) { doc.addPage(); finalY = 20; }
+            doc.text("Materiali di Consumo / Extra:", 14, finalY - 2);
+            doc.autoTable({
+                startY: finalY,
+                head: [['Materiale', 'Quantità', 'Prezzo Unit.', 'Importo']],
+                body: matBody,
+                theme: 'grid',
+                headStyles: { fillColor: [108, 117, 125] },
+                columnStyles: { 3: { cellWidth: 25, halign: 'right' } },
+                styles: { fontSize: 10, cellPadding: 4 }
+            });
+            finalY = doc.lastAutoTable.finalY + 15;
+        }
+
+        // Note Table
+        if (notes.length > 0) {
+            let noteBody = notes.map(n => [n.text]);
+            if (finalY > 250) { doc.addPage(); finalY = 20; }
+            doc.text("Note & Osservazioni:", 14, finalY - 2);
+            doc.autoTable({
+                startY: finalY,
+                body: noteBody,
+                theme: 'plain',
+                styles: { fontSize: 10, cellPadding: 4, fontStyle: 'italic' }
+            });
+            finalY = doc.lastAutoTable.finalY + 15;
+        }
+
+        // Totale Box
+        const grandTotal = shiftTotal + matTotal;
+        if (finalY > 260) { doc.addPage(); finalY = 20; }
+        
+        doc.setFillColor(253, 185, 19);
+        doc.rect(120, finalY - 10, 76, 12, "F");
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(0,0,0);
+        doc.text(`TOTALE: ${grandTotal.toFixed(2)} €`, 190, finalY - 2, { align: 'right' });
+
+        // Footer
+        doc.setFontSize(8);
+        doc.setTextColor(100);
+        doc.setFont("helvetica", "normal");
+        doc.text("Il presente documento è generato automaticamente. Tariffe applicate secondo listino vigente.", 14, finalY + 10);
+        doc.text("Legenda Codici: S30=Diurno, S50=Notturno/Sabato, S65=Festivo Diurno, S75=Festivo Notturno", 14, finalY + 15);
+
+        doc.save(`${appMode}_${client.replace(/ /g,'_')}.pdf`);
+    }
+
+    // Init
+    document.getElementById('shiftDate').valueAsDate = new Date();
+</script>
+
+</body>
+</html>

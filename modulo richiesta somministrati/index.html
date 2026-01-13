@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Richiesta Somministrazione</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+    
+    <style>
+        :root {
+            --primary: #0b2d51; 
+            --accent: #fdb913;
+            --bg: #f0f2f5;
+            --text: #333;
+            --white: #ffffff;
+            --error: #dc3545;
+            --success: #28a745;
+            --border: #dee2e6;
+        }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 15px; 
+            line-height: 1.5;
+            font-size: 16px; 
+        }
+
+        .container { max-width: 1000px; margin: 0 auto; }
+
+        /* --- UI COMPONENTS --- */
+        .top-bar {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 20px; flex-wrap: wrap; gap: 10px;
+        }
+
+        .hint-text { font-size: 0.85em; color: #666; }
+
+        .btn-reset {
+            background-color: #fff; color: #495057; border: 1px solid #ced4da;
+            padding: 8px 15px; border-radius: 50px; cursor: pointer; font-size: 0.9rem;
+            display: flex; align-items: center; gap: 5px; font-weight: 600;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+
+        header { text-align: center; margin-bottom: 25px; }
+        header h1 { color: var(--primary); margin: 0; font-size: 1.8rem; text-transform: uppercase; letter-spacing: 0.5px; }
+        header p { color: #666; margin-top: 5px; font-size: 0.95rem; }
+
+        /* Stile per il link nel footer/header */
+        .credits-link {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: bold;
+            transition: color 0.2s;
+        }
+        .credits-link:hover {
+            color: var(--accent);
+            text-decoration: underline;
+        }
+
+        .card {
+            background: var(--white); border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            padding: 20px; margin-bottom: 20px; border-top: 4px solid var(--primary);
+        }
+
+        .card h3 {
+            margin-top: 0; color: var(--primary); border-bottom: 1px solid var(--border);
+            padding-bottom: 10px; margin-bottom: 20px; font-size: 1.1rem;
+            display: flex; align-items: center; gap: 8px;
+        }
+
+        .grid-2, .grid-3 { display: grid; gap: 15px; }
+        .grid-2 { grid-template-columns: 1fr 1fr; }
+        .grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+        
+        label { display: block; margin-bottom: 6px; font-weight: 600; font-size: 0.9rem; color: #555; }
+        
+        input[type="text"], input[type="date"], input[type="number"], select, textarea {
+            width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px;
+            font-size: 1rem; background: #fff; appearance: none; 
+        }
+        
+        /* Input per gli orari: stile "Code" */
+        input.nav-input { 
+            font-family: monospace; letter-spacing: 1px; text-align: center; 
+            font-weight: 600; color: var(--primary);
+        }
+        
+        input:focus, select:focus, textarea:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 3px rgba(11, 45, 81, 0.1); }
+        input[readonly] { background-color: #f8f9fa; color: #666; border-color: #eee; }
+
+        /* --- TABELLA ORARI --- */
+        .schedule-table { width: 100%; border-collapse: separate; border-spacing: 0; margin-top: 10px; }
+        
+        @media (min-width: 769px) {
+            .schedule-table th { background-color: var(--primary); color: white; padding: 12px; text-align: left; }
+            .schedule-table th:first-child { border-top-left-radius: 8px; }
+            .schedule-table th:last-child { border-top-right-radius: 8px; }
+            .schedule-table td { padding: 10px; border-bottom: 1px solid #eee; }
+            .time-inputs { display: flex; gap: 5px; align-items: center; }
+            .time-inputs input { padding: 5px; width: 90px; text-align: center; font-size: 1rem; border-radius: 4px; }
+            .divider { margin: 0 5px; color: #999; }
+        }
+
+        @media (max-width: 768px) {
+            .top-bar { flex-direction: column-reverse; align-items: stretch; }
+            .btn-reset { justify-content: center; background-color: #f8d7da; color: #721c24; border-color: #f5c6cb; }
+            .grid-2, .grid-3 { grid-template-columns: 1fr; } 
+            
+            .schedule-table, .schedule-table tbody, .schedule-table tr, .schedule-table td, .schedule-table th { display: block; width: 100%; }
+            .schedule-table thead { display: none; }
+
+            .schedule-table tr {
+                background: #fff; border: 1px solid #e0e0e0; border-radius: 12px;
+                margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.03); overflow: hidden;
+            }
+
+            .schedule-table td:first-child {
+                background-color: var(--primary); color: white; font-weight: bold;
+                text-align: center; padding: 10px; font-size: 1.1rem; border-bottom: none;
+            }
+
+            .schedule-table td { padding: 12px; border-bottom: 1px solid #f0f0f0; text-align: left; position: relative; }
+
+            .schedule-table td:nth-child(2)::before { content: "Turno 1 (Mattina)"; display: block; font-size: 0.8em; color: #888; margin-bottom: 5px; font-weight: 600; text-transform: uppercase; }
+            .schedule-table td:nth-child(3)::before { content: "Turno 2 (Pomeriggio)"; display: block; font-size: 0.8em; color: #888; margin-bottom: 5px; font-weight: 600; text-transform: uppercase; }
+            
+            .time-inputs { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+            .time-inputs input { width: 48%; padding: 10px; text-align: center; font-size: 1.2rem; border: 1px solid #ccc; background: #fdfdfd; }
+            .divider { display: none; } 
+
+            .schedule-table td:nth-child(4) { display: flex; justify-content: space-between; align-items: center; background-color: #fafafa; font-weight: bold; color: var(--primary); }
+            .schedule-table td:nth-child(4)::before { content: "Totale Ore:"; font-weight: normal; color: #555; }
+            .schedule-table td:nth-child(5) { display: flex; justify-content: space-between; align-items: center; border-bottom: none; }
+            .schedule-table td:nth-child(5)::before { content: "Buono Pasto:"; color: #555; }
+        }
+
+        .badge { display: inline-block; padding: 5px 10px; border-radius: 6px; font-weight: bold; font-size: 0.85rem; min-width: 40px; text-align: center; }
+        .badge-yes { background-color: #d4edda; color: #155724; }
+        .badge-no { background-color: #f8d7da; color: #721c24; }
+
+        .total-box {
+            margin-top: 20px; padding: 15px; border-radius: 8px; text-align: center; font-size: 1.1rem; font-weight: bold;
+            display: flex; flex-direction: column; gap: 5px;
+        }
+        @media (min-width: 768px) { .total-box { flex-direction: row; justify-content: space-between; text-align: right; } }
+        
+        .status-ok { background-color: #d1e7dd; color: #0f5132; border: 1px solid #badbcc; }
+        .status-err { background-color: #f8d7da; color: #842029; border: 1px solid #f5c2c7; }
+
+        .btn-generate {
+            display: block; width: 100%; padding: 18px; 
+            background: linear-gradient(135deg, var(--primary) 0%, #1a4a7c 100%);
+            color: white; font-size: 1.1rem; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;
+            border: none; border-radius: 8px; cursor: pointer; margin-top: 25px;
+            box-shadow: 0 4px 15px rgba(11, 45, 81, 0.3);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .btn-generate:active { transform: scale(0.98); }
+
+        .hidden { display: none; }
+        .error-msg {
+            color: var(--error); background: #fff; border: 1px solid var(--error); 
+            padding: 15px; border-radius: 8px; margin-top: 20px; text-align: center; font-weight: bold; display: none;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="top-bar">
+        <button type="button" class="btn-reset" onclick="resetForm()">
+            🗑️ Reset Modulo
+        </button>
+    </div>
+
+    <header>
+        <h1>Richiesta Somministrazione</h1>
+        <p>Randstad Service srl - Modulo Digitale</p>
+        <p>by <a href="https://www.digitrikpro.com" target="_blank" class="credits-link">www.digitrikpro.com</a></p>
+    </header>
+
+    <form id="requestForm">
+        
+        <div class="card">
+            <h3>📅 Dettagli Contratto</h3>
+            <div class="grid-3">
+                <div>
+                    <label>Data Inizio</label>
+                    <input type="date" id="startDate" required>
+                </div>
+                <div>
+                    <label>Data Fine</label>
+                    <input type="date" id="endDate" required>
+                </div>
+                <div>
+                    <label>Monte Ore</label>
+                    <select id="weeklyHours" onchange="calculateTotals()">
+                        <option value="39">39 Ore</option>
+                        <option value="30">30 Ore</option>
+                        <option value="20">20 Ore</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>📍 Inquadramento e Sede</h3>
+            
+            <div>
+                <label>CCNL</label>
+                <select id="ccnl" required>
+                    <option value="Logistica e Trasporti">Logistica e Trasporti</option>
+                </select>
+            </div>
+
+            <div class="grid-2" style="margin-top: 15px;">
+                <div>
+                    <label>Mansione</label>
+                    <select id="jobTitle" onchange="updateLevel()" required>
+                        <option value="">-- Seleziona --</option>
+                        <option value="Add.to al magazzino - Facchino alla rulliera">Facchino alla rulliera</option>
+                        <option value="Add.to al magazzino - Movimentazione merci con mezzi">Movimentazione merci con mezzi</option>
+                        <option value="Add.to al magazzino - Utilizzo strumentazione informatiche">Utilizzo strum. informatiche</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Livello</label>
+                    <input type="text" id="level" readonly>
+                </div>
+            </div>
+
+            <div class="grid-2" style="margin-top: 15px;">
+                <div>
+                    <label>Luogo di Lavoro</label>
+                    <select id="location" onchange="updateReferents()" required>
+                        <option value="">-- Seleziona --</option>
+                        <option value="Schio">Sede GLS Schio - Via Lago di Misurina 47/49/51</option>
+                        <option value="Vicenza">Sede GLS Vicenza - Via Della Siderurgia 93</option>
+                        <option value="Altro">Altro</option>
+                    </select>
+                    <input type="text" id="locationOther" class="hidden" placeholder="Indirizzo completo" style="margin-top:10px;">
+                </div>
+                <div>
+                    <label>Referenti Operativi</label>
+                    <input type="text" id="referents" readonly>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>⏱ Orario Settimanale</h3>
+            <p style="font-size: 0.9em; color: #666; margin-bottom: 15px;">
+                Inserisci orari (es: 8, 8.30, 14, 18.30). Arrotondamento automatico.
+            </p>
+            
+            <table class="schedule-table">
+                <thead>
+                    <tr>
+                        <th style="width: 15%;">Giorno</th>
+                        <th style="width: 35%;">Turno 1</th>
+                        <th style="width: 35%;">Turno 2</th>
+                        <th style="width: 10%; text-align:center;">Ore</th>
+                        <th style="width: 5%; text-align:center;">Ticket</th>
+                    </tr>
+                </thead>
+                <tbody id="scheduleBody">
+                    </tbody>
+            </table>
+
+            <div id="totalBox" class="total-box status-err">
+                <span>Stato:</span>
+                <span id="totalText">0.00 / 39.00 Ore</span>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>📝 Motivazione</h3>
+            <label>Tipologia Richiesta</label>
+            <select id="reasonType" onchange="toggleReasonFields()" required>
+                <option value="">-- Seleziona --</option>
+                <option value="Svantaggiato">Lavoratore Svantaggiato</option>
+                <option value="Sostituzione">Sostituzione</option>
+            </select>
+
+            <div id="reasonDisadvantaged" class="hidden" style="margin-top: 15px;">
+                <label>Note (Opzionale)</label>
+                <textarea id="reasonNote" rows="2" placeholder="Dettagli..."></textarea>
+            </div>
+
+            <div id="reasonReplacement" class="hidden" style="margin-top: 15px;">
+                <div class="grid-2">
+                    <div>
+                        <label>Matricola Assente</label>
+                        <input type="text" id="absentID">
+                    </div>
+                    <div>
+                        <label>Nominativo Assente</label>
+                        <input type="text" id="absentName">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card" style="border-top-color: var(--accent);">
+            <label>Compilato da:</label>
+            <input type="text" id="compilerName" placeholder="Il tuo nome e cognome" required>
+        </div>
+
+        <div id="errorBox" class="error-msg"></div>
+        <button type="button" class="btn-generate" onclick="generatePDF()">Scarica Richiesta PDF</button>
+
+    </form>
+</div>
+
+<script>
+    // --- INIT ---
+    const days = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"];
+    const tbody = document.getElementById('scheduleBody');
+
+    // --- SMART PARSER ORARI ---
+    // Converte qualsiasi cosa scriva l'utente in HH:MM arrotondato
+    function parseAndSnapTime(val) {
+        if (!val) return "";
+        
+        // Rimuove tutto tranne numeri
+        let nums = val.replace(/[^0-9]/g, '');
+        if (nums.length === 0) return "";
+
+        let h = 0, m = 0;
+
+        // Interpretazione "smart"
+        if (nums.length <= 2) {
+            // Es: "8" -> 08:00
+            h = parseInt(nums);
+        } else if (nums.length === 3) {
+            // Es: "830" -> 08:30
+            h = parseInt(nums.substring(0, 1));
+            m = parseInt(nums.substring(1));
+        } else {
+            // Es: "0830" o "1430"
+            h = parseInt(nums.substring(0, 2));
+            m = parseInt(nums.substring(2, 4)); // Prende solo primi 2 minuti
+        }
+
+        // Arrotondamento ai 30 minuti
+        if (m < 15) {
+            m = 0;
+        } else if (m < 45) {
+            m = 30;
+        } else {
+            m = 0;
+            h = (h + 1) % 24;
+        }
+        
+        // Limita ore
+        if (h > 23) h = 23;
+
+        return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    }
+
+    // --- GENERAZIONE TABELLA ---
+    days.forEach((day, index) => {
+        const idPrefix = `day_${index}`; 
+        const tr = document.createElement('tr');
+        
+        // inputmode="decimal" fa apparire il tastierino numerico su mobile
+        // type="text" rimuove i vincoli del browser
+        tr.innerHTML = `
+            <td>${day}</td>
+            <td>
+                <div class="time-inputs">
+                    <input type="text" inputmode="decimal" placeholder="--:--" id="${idPrefix}_0" data-row="${index}" data-col="0" class="t1-in save-me nav-input" onblur="handleBlur(this)"> 
+                    <span class="divider">-</span> 
+                    <input type="text" inputmode="decimal" placeholder="--:--" id="${idPrefix}_1" data-row="${index}" data-col="1" class="t1-out save-me nav-input" onblur="handleBlur(this)">
+                </div>
+            </td>
+            <td>
+                <div class="time-inputs">
+                    <input type="text" inputmode="decimal" placeholder="--:--" id="${idPrefix}_2" data-row="${index}" data-col="2" class="t2-in save-me nav-input" onblur="handleBlur(this)"> 
+                    <span class="divider">-</span> 
+                    <input type="text" inputmode="decimal" placeholder="--:--" id="${idPrefix}_3" data-row="${index}" data-col="3" class="t2-out save-me nav-input" onblur="handleBlur(this)">
+                </div>
+            </td>
+            <td class="daily-total">0</td>
+            <td><span class="badge badge-no ticket-badge">NO</span></td>
+        `;
+        tbody.appendChild(tr);
+    });
+
+    // Wrapper: Scatta quando l'utente ESCE dal campo (Tab o click fuori)
+    function handleBlur(input) {
+        const formatted = parseAndSnapTime(input.value);
+        input.value = formatted; // Aggiorna visivamente
+        calculateTotals(); 
+        if(input.id) localStorage.setItem(input.id, input.value);
+    }
+
+    // --- NAVIGAZIONE TASTIERA ---
+    document.addEventListener('keydown', function(e) {
+        if (!e.target.classList.contains('nav-input')) return;
+        
+        // Permetti Tab nativo
+        if (e.key === 'Tab') return; 
+
+        const currentInput = e.target;
+        const row = parseInt(currentInput.dataset.row);
+        const col = parseInt(currentInput.dataset.col);
+        const maxRows = days.length;
+        const maxCols = 4;
+        let nextInput = null;
+
+        if (e.key === 'ArrowRight') { if (col < maxCols - 1) nextInput = document.querySelector(`input[data-row="${row}"][data-col="${col + 1}"]`); }
+        else if (e.key === 'ArrowLeft') { if (col > 0) nextInput = document.querySelector(`input[data-row="${row}"][data-col="${col - 1}"]`); }
+        else if (e.key === 'ArrowDown') { e.preventDefault(); if (row < maxRows - 1) nextInput = document.querySelector(`input[data-row="${row + 1}"][data-col="${col}"]`); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); if (row > 0) nextInput = document.querySelector(`input[data-row="${row - 1}"][data-col="${col}"]`); }
+
+        if (nextInput) nextInput.focus();
+    });
+
+    // --- AUTO SAVE ---
+    document.addEventListener('input', function(e) {
+        // Salva gli altri campi, ma non gli orari mentre si digitano (si salvano in blur)
+        if (e.target.id && !e.target.classList.contains('nav-input')) {
+            localStorage.setItem(e.target.id, e.target.value);
+        }
+    });
+
+    function resetForm() {
+        if(confirm("Vuoi cancellare tutto e ricominciare?")) {
+            localStorage.clear();
+            location.reload();
+        }
+    }
+
+    // --- LOAD DATA ---
+    window.addEventListener('load', () => {
+        const inputs = document.querySelectorAll('input, select, textarea');
+        inputs.forEach(input => {
+            if (input.id && localStorage.getItem(input.id)) {
+                input.value = localStorage.getItem(input.id);
+            }
+        });
+        updateReferents();
+        updateLevel();
+        toggleReasonFields();
+        calculateTotals();
+    });
+
+    // --- CALCOLO ORE ---
+    function timeToDecimal(t) {
+        if (!t || t.indexOf(':') === -1) return null;
+        const [h, m] = t.split(':').map(Number);
+        return h + (m / 60);
+    }
+
+    function getDiff(start, end) {
+        const s = timeToDecimal(start);
+        const e = timeToDecimal(end);
+        if (s !== null && e !== null) {
+            let diff = e - s;
+            if (diff < 0) diff += 24; 
+            return diff;
+        }
+        return 0;
+    }
+
+    function calculateTotals() {
+        let weeklySum = 0;
+        const target = parseInt(document.getElementById('weeklyHours').value);
+        const rows = document.querySelectorAll('#scheduleBody tr');
+
+        rows.forEach(row => {
+            const t1in = row.querySelector('.t1-in').value;
+            const t1out = row.querySelector('.t1-out').value;
+            const t2in = row.querySelector('.t2-in').value;
+            const t2out = row.querySelector('.t2-out').value;
+
+            let dailySum = getDiff(t1in, t1out) + getDiff(t2in, t2out);
+            dailySum = Math.round(dailySum * 100) / 100;
+
+            const totalCell = row.querySelector('.daily-total');
+            totalCell.innerText = dailySum > 0 ? dailySum : 0;
+            
+            const ticketBadge = row.querySelector('.ticket-badge');
+            if (dailySum > 4.5) {
+                ticketBadge.className = "badge badge-yes ticket-badge";
+                ticketBadge.innerText = "SÌ";
+            } else {
+                ticketBadge.className = "badge badge-no ticket-badge";
+                ticketBadge.innerText = "NO";
+            }
+            weeklySum += dailySum;
+        });
+
+        const totalBox = document.getElementById('totalBox');
+        const totalText = document.getElementById('totalText');
+        const diff = Math.abs(weeklySum - target);
+        const isOk = diff < 0.1; 
+
+        totalText.innerText = `${weeklySum.toFixed(2)} / ${target} Ore`;
+
+        if (isOk) {
+            totalBox.className = "total-box status-ok";
+            totalText.innerHTML += " ✅ OK";
+            return true;
+        } else {
+            totalBox.className = "total-box status-err";
+            if (weeklySum < target) totalText.innerHTML += ` (Mancano ${(target - weeklySum).toFixed(2)})`;
+            else totalText.innerHTML += ` (Eccesso ${(weeklySum - target).toFixed(2)})`;
+            return false;
+        }
+    }
+
+    // --- LOGICA CAMPI ---
+    function updateLevel() {
+        const job = document.getElementById('jobTitle').value.toLowerCase(); 
+        const levelInput = document.getElementById('level');
+        
+        if (job.includes("facchino")) levelInput.value = "6° Livello";
+        else if (job.includes("mezzi")) levelInput.value = "5° Livello";
+        else if (job.includes("informatiche")) levelInput.value = "5° Livello";
+        else levelInput.value = "";
+        
+        if(levelInput.value) localStorage.setItem('level', levelInput.value);
+    }
+
+    function updateReferents() {
+        const loc = document.getElementById('location').value;
+        const refInput = document.getElementById('referents');
+        const locOther = document.getElementById('locationOther');
+        locOther.classList.add('hidden');
+
+        if (loc === "Schio") refInput.value = "Enrico Zordan - Andrea Triches";
+        else if (loc === "Vicenza") refInput.value = "Stefano Trevisan - Patric Er Poholou";
+        else if (loc === "Altro") { refInput.value = ""; locOther.classList.remove('hidden'); }
+        else refInput.value = "";
+        
+        if(refInput.value) localStorage.setItem('referents', refInput.value);
+    }
+
+    function toggleReasonFields() {
+        const type = document.getElementById('reasonType').value;
+        document.getElementById('reasonDisadvantaged').classList.add('hidden');
+        document.getElementById('reasonReplacement').classList.add('hidden');
+        if (type === "Svantaggiato") document.getElementById('reasonDisadvantaged').classList.remove('hidden');
+        if (type === "Sostituzione") document.getElementById('reasonReplacement').classList.remove('hidden');
+    }
+
+    // --- PDF ---
+    async function generatePDF() {
+        const { jsPDF } = window.jspdf;
+        const errorBox = document.getElementById('errorBox');
+        errorBox.style.display = 'none';
+
+        const form = document.getElementById('requestForm');
+        if (!form.checkValidity()) {
+            errorBox.innerText = "⚠️ Compila tutti i campi obbligatori.";
+            errorBox.style.display = 'block';
+            window.scrollTo(0, document.body.scrollHeight);
+            return;
+        }
+
+        if (!calculateTotals()) {
+            errorBox.innerText = "⚠️ Le ore inserite non corrispondono al Monte Ore.";
+            errorBox.style.display = 'block';
+            window.scrollTo(0, document.body.scrollHeight);
+            return;
+        }
+
+        const doc = new jsPDF();
+        const compiler = document.getElementById('compilerName').value;
+        const start = document.getElementById('startDate').value.split('-').reverse().join('/');
+        const end = document.getElementById('endDate').value.split('-').reverse().join('/');
+        
+        let location = document.getElementById('location').value;
+        if(location === 'Schio') location = "Sede GLS Schio - Via Lago di Misurina 47/49/51";
+        if(location === 'Vicenza') location = "Sede GLS Vicenza - Via Della Siderurgia 93";
+        if(location === 'Altro') location = document.getElementById('locationOther').value;
+
+        // Header PDF
+        doc.setFillColor(11, 45, 81); 
+        doc.rect(0, 0, 210, 25, "F");
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(18);
+        doc.setFont("helvetica", "bold");
+        doc.text("RICHIESTA SOMMINISTRAZIONE", 105, 16, null, null, "center");
+
+        let y = 40;
+        doc.setTextColor(0, 0, 0);
+        doc.setFontSize(11);
+        doc.setFont("helvetica", "normal");
+        
+        const labelX = 15;
+        const valueX = 70;
+        const lineHeight = 7;
+
+        doc.setFont("helvetica", "bold"); doc.text("DATI CONTRATTUALI", 15, y); 
+        doc.setLineWidth(0.5); doc.line(15, y+2, 195, y+2); y+=10;
+        
+        doc.setFont("helvetica", "bold"); doc.text("Periodo:", labelX, y);
+        doc.setFont("helvetica", "normal"); doc.text(`Dal ${start} al ${end}`, valueX, y); y+=lineHeight;
+
+        doc.setFont("helvetica", "bold"); doc.text("Monte Ore:", labelX, y);
+        doc.setFont("helvetica", "normal"); doc.text(`${document.getElementById('weeklyHours').value} Ore Settimanali`, valueX, y); y+=lineHeight;
+        
+        doc.setFont("helvetica", "bold"); doc.text("CCNL:", labelX, y);
+        doc.setFont("helvetica", "normal"); doc.text(document.getElementById('ccnl').value, valueX, y); y+=lineHeight;
+
+        doc.setFont("helvetica", "bold"); doc.text("Mansione:", labelX, y);
+        doc.setFont("helvetica", "normal"); doc.text(document.getElementById('jobTitle').value, valueX, y); y+=lineHeight;
+
+        doc.setFont("helvetica", "bold"); doc.text("Livello:", labelX, y);
+        doc.setFont("helvetica", "normal"); doc.text(document.getElementById('level').value, valueX, y); y+=lineHeight;
+
+        doc.setFont("helvetica", "bold"); doc.text("Luogo:", labelX, y);
+        doc.setFont("helvetica", "normal"); doc.text(location, valueX, y); y+=lineHeight;
+
+        doc.setFont("helvetica", "bold"); doc.text("Referenti:", labelX, y);
+        doc.setFont("helvetica", "normal"); doc.text(document.getElementById('referents').value, valueX, y); y+=12;
+
+        doc.setFont("helvetica", "bold"); doc.text("MOTIVAZIONE", 15, y);
+        doc.line(15, y+2, 195, y+2); y+=10;
+        
+        let reasonText = "";
+        if (document.getElementById('reasonType').value === "Svantaggiato") {
+            reasonText = `Inserimento cat. svantaggiata. Note: ${document.getElementById('reasonNote').value}`;
+        } else {
+            reasonText = `Sostituzione di: ${document.getElementById('absentName').value} (Matr. ${document.getElementById('absentID').value})`;
+        }
+        
+        const splitReason = doc.splitTextToSize(reasonText, 180);
+        doc.setFont("helvetica", "normal"); doc.text(splitReason, 15, y);
+        y += (splitReason.length * 5) + 10;
+
+        doc.setFont("helvetica", "bold"); doc.text("DETTAGLIO ORARIO", 15, y);
+        doc.line(15, y+2, 195, y+2); y+=5;
+
+        const tableBody = [];
+        const rows = document.querySelectorAll('#scheduleBody tr');
+        rows.forEach(row => {
+            const day = row.cells[0].innerText;
+            const t1 = `${row.querySelector('.t1-in').value} - ${row.querySelector('.t1-out').value}`;
+            const t2 = `${row.querySelector('.t2-in').value} - ${row.querySelector('.t2-out').value}`;
+            const tot = row.querySelector('.daily-total').innerText;
+            const ticket = row.querySelector('.ticket-badge').innerText;
+            
+            const cleanT1 = t1 === " - " ? "" : t1;
+            const cleanT2 = t2 === " - " ? "" : t2;
+
+            tableBody.push([day, cleanT1, cleanT2, tot, ticket]);
+        });
+
+        doc.autoTable({
+            startY: y,
+            head: [['Giorno', 'Turno 1', 'Turno 2', 'Ore', 'Ticket']],
+            body: tableBody,
+            theme: 'grid',
+            headStyles: { fillColor: [11, 45, 81] },
+            columnStyles: {
+                0: { cellWidth: 30, fontStyle: 'bold' },
+                3: { cellWidth: 15, halign: 'center' },
+                4: { cellWidth: 15, halign: 'center' }
+            }
+        });
+
+        // --- AGGIUNTA NOTA ROSSA NB ---
+        let finalY = doc.lastAutoTable.finalY + 10;
+        
+        // Imposta colore rosso
+        doc.setTextColor(220, 53, 69); 
+        doc.setFontSize(9);
+        doc.text("NB: Il ticket deve essere riconosciuto solamente dopo la quarta ora e mezza lavorata.", 15, finalY);
+        
+        // Reset colore nero
+        doc.setTextColor(0, 0, 0);
+        doc.setFontSize(10);
+        finalY += 10;
+        
+        // Firma Footer
+        if (finalY > 270) { doc.addPage(); finalY = 20; }
+        doc.text(`Richiesta compilata da: ${compiler}`, 15, finalY);
+        doc.text(`Data compilazione: ${new Date().toLocaleDateString('it-IT')}`, 15, finalY + 6);
+
+        doc.save(`Richiesta_Somm_${compiler.replace(/ /g, '_')}.pdf`);
+    }
+</script>
+
+</body>
+</html>

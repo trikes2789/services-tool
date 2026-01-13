@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Pre-Ordine Cancelleria - Tool Smart</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+    
+    <style>
+        :root {
+            --primary: #0b2d51; 
+            --accent: #fdb913;
+            --bg: #f0f2f5;
+            --text: #333;
+            --white: #ffffff;
+            --error: #dc3545;
+            --success: #28a745;
+            --border: #dee2e6;
+            --gray-box: #6c757d;
+        }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0; padding: 10px;
+            line-height: 1.5; font-size: 16px;
+        }
+
+        .container { max-width: 1000px; margin: 0 auto; }
+
+        .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .btn-reset {
+            background-color: #fff; color: #495057; border: 1px solid #ced4da;
+            padding: 8px 15px; border-radius: 50px; cursor: pointer; font-size: 0.9rem;
+            display: flex; align-items: center; gap: 5px; font-weight: 600;
+        }
+
+        header { text-align: center; margin-bottom: 25px; }
+        header h1 { color: var(--primary); margin: 0; font-size: 1.6rem; text-transform: uppercase; letter-spacing: 0.5px; }
+        header h4 { margin: 5px 0; color: #555; }
+        header p { color: #666; margin-top: 5px; font-size: 0.9rem; }
+        
+        header a { color: var(--primary); text-decoration: none; font-weight: bold; border-bottom: 1px dotted var(--primary); }
+        header a:hover { color: var(--accent); border-bottom-color: var(--accent); }
+
+        .card {
+            background: var(--white); border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            padding: 20px; margin-bottom: 20px; border-top: 4px solid var(--primary);
+            width: 100%;
+        }
+
+        .card h3 {
+            margin-top: 0; color: var(--primary); border-bottom: 1px solid var(--border);
+            padding-bottom: 10px; margin-bottom: 15px; font-size: 1.1rem;
+        }
+
+        /* GRIGLIE */
+        .grid-2, .grid-3, .grid-4 { display: grid; gap: 15px; width: 100%; }
+        .grid-2 { grid-template-columns: 1fr 1fr; }
+        .grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+        .grid-address { display: grid; grid-template-columns: 3fr 1fr; gap: 15px; }
+
+        @media (max-width: 768px) {
+            .grid-2, .grid-3, .grid-address { grid-template-columns: 1fr; }
+            .card { padding: 15px; }
+        }
+
+        label { display: block; margin-bottom: 6px; font-weight: 600; font-size: 0.9rem; color: #555; }
+        
+        input[type="text"], input[type="date"], input[type="number"], select {
+            width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px;
+            font-size: 16px; background: #fff; appearance: none;
+        }
+        
+        input[readonly] { background-color: #e9ecef; color: #495057; cursor: not-allowed; }
+
+        .entry-box {
+            background-color: #f8f9fa; 
+            border: 1px dashed var(--primary); 
+            padding: 15px; border-radius: 8px; margin-bottom: 15px;
+        }
+
+        .btn-add {
+            background-color: var(--success); color: white; border: none; width: 100%;
+            padding: 14px; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 15px;
+            text-transform: uppercase; letter-spacing: 0.5px; font-size: 1rem;
+        }
+
+        .table-responsive { width: 100%; overflow-x: auto; margin-top: 15px; border-radius: 8px; border: 1px solid #eee; }
+        .results-table { width: 100%; border-collapse: collapse; font-size: 0.95rem; min-width: 600px; }
+        .results-table th { background: var(--primary); color: white; padding: 12px 10px; text-align: left; }
+        .results-table td { padding: 12px 10px; border-bottom: 1px solid #ddd; vertical-align: middle; }
+        .results-table tr:nth-child(even) { background-color: #f9f9f9; }
+
+        .btn-delete {
+            background: #ffcccc; color: #cc0000; border: none; padding: 6px 12px;
+            border-radius: 4px; cursor: pointer; font-size: 0.9em; font-weight: bold;
+        }
+
+        .btn-generate {
+            display: block; width: 100%; padding: 18px; 
+            background: linear-gradient(135deg, var(--primary) 0%, #1a4a7c 100%);
+            color: white; font-size: 1.1rem; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;
+            border: none; border-radius: 8px; cursor: pointer; margin-top: 25px; margin-bottom: 30px;
+            box-shadow: 0 4px 15px rgba(11, 45, 81, 0.3);
+        }
+
+        .pack-info { font-size: 0.85em; color: var(--primary); margin-top: 4px; font-weight: bold; }
+        .error-msg { color: var(--error); font-size: 0.9em; font-weight: bold; display: none; margin-top: 5px; }
+        .code-badge { background: #e9ecef; padding: 2px 6px; border-radius: 4px; font-family: monospace; border: 1px solid #ccc; font-weight: bold;}
+        
+        .section-title { margin-top: 20px; margin-bottom: 10px; color: var(--primary); font-size: 1rem; text-transform: uppercase; font-weight: bold; border-bottom: 2px solid #eee; display:inline-block; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="top-bar">
+        <button type="button" class="btn-reset" onclick="resetApp()">🗑️ Reset Articoli</button>
+    </div>
+
+    <header>
+        <h1>PRE-ORDINE CANCELLERIA</h1>
+        <h4>Modulo interno Richiesta Materiali</h4>
+        <p>by <a href="https://www.digitrikpro.com" target="_blank">www.digitrikpro.com</a></p>
+    </header>
+
+    <form id="mainForm" onsubmit="return false;">
+        <div class="card">
+            <h3>👤 Dati & Spedizione</h3>
+            
+            <div class="grid-2">
+                <div>
+                    <label>Richiedente (Nome/Ufficio)</label>
+                    <input type="text" id="reqName" placeholder="Es. Mario Rossi" oninput="saveData()">
+                </div>
+                <div>
+                    <label>Data Richiesta</label>
+                    <input type="date" id="reqDate" onchange="saveData()">
+                </div>
+            </div>
+
+            <div class="section-title">Luogo di Spedizione Merce</div>
+            
+            <div style="margin-bottom: 15px;">
+                <label>Sede / Filiale</label>
+                <input type="text" id="shipSite" placeholder="Es. Sede Centrale - Magazzino A" oninput="saveData()">
+            </div>
+
+            <div class="grid-address">
+                <div>
+                    <label>Via / Piazza</label>
+                    <input type="text" id="shipStreet" placeholder="Indirizzo" oninput="saveData()">
+                </div>
+                <div>
+                    <label>Civico</label>
+                    <input type="text" id="shipNum" placeholder="N." oninput="saveData()">
+                </div>
+            </div>
+
+            <div class="grid-3" style="margin-top: 15px;">
+                <div>
+                    <label>CAP</label>
+                    <input type="text" id="shipZip" placeholder="00000" oninput="saveData()">
+                </div>
+                <div>
+                    <label>Comune</label>
+                    <input type="text" id="shipCity" placeholder="Città" oninput="saveData()">
+                </div>
+                <div>
+                    <label>Provincia</label>
+                    <input type="text" id="shipProv" placeholder="PR" oninput="saveData()">
+                </div>
+            </div>
+
+            <div class="grid-2" style="margin-top: 15px;">
+                <div>
+                    <label>Nominativo Riferimento in Sede</label>
+                    <input type="text" id="shipContact" placeholder="Chi riceve la merce" oninput="saveData()">
+                </div>
+                <div>
+                    <label>Telefono Riferimento</label>
+                    <input type="text" id="shipPhone" placeholder="Cell. o Fisso" oninput="saveData()">
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>📦 Selezione Prodotti</h3>
+            <p style="font-size:0.9em; color:#666; margin-bottom:15px;">
+                Seleziona il prodotto e inserisci quantità. <strong>Premi INVIO</strong> per aggiungere.
+            </p>
+            
+            <div class="entry-box">
+                <div class="grid-3">
+                    <div style="grid-column: span 3;">
+                        <label>Prodotto (Listino Lyreco)</label>
+                        <select id="prodSelect" onchange="updateProductDetails()">
+                            <option value="">-- Seleziona Prodotto --</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid-3" style="margin-top: 15px;">
+                    <div>
+                        <label>Codice Lyreco</label>
+                        <input type="text" id="prodCode" readonly>
+                    </div>
+                    <div>
+                        <label>Pezzi per Confezione</label>
+                        <input type="text" id="prodPackSize" readonly>
+                    </div>
+                    <div>
+                        <label>Quantità Totale (Pezzi)</label>
+                        <input type="number" id="prodQty" placeholder="0" min="1" 
+                               oninput="checkValidation()" 
+                               onkeydown="checkEnter(event)">
+                        <div id="qtyError" class="error-msg">⚠️ Errore: Inserire un multiplo della confezione!</div>
+                    </div>
+                </div>
+                
+                <div class="pack-info" id="packCalcDisplay"></div>
+
+                <button type="button" class="btn-add" onclick="addItem()">➕ Aggiungi alla Lista</button>
+            </div>
+
+            <div class="table-responsive">
+                <table class="results-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 15%">Codice</th>
+                            <th style="width: 45%">Prodotto</th>
+                            <th style="width: 15%">Q.tà (Pz)</th>
+                            <th style="width: 15%">Conf. Calc.</th>
+                            <th style="width: 10%"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="orderBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card">
+            <div style="text-align: right; font-weight: bold; color: var(--primary);">
+                Totale Referenze: <span id="totalItems">0</span>
+            </div>
+        </div>
+
+        <button type="button" class="btn-generate" onclick="generatePDF()">📄 Genera Documento Acquisti</button>
+    </form>
+</div>
+
+<script>
+    // --- DATABASE PRODOTTI ---
+    const CATALOG = [
+        { name: "PENNA A SFERA (Blu/Nera)", code: "130.761", pack: 100 },
+        { name: "PENNARELLO INDELEBILE", code: "151.158", pack: 10 },
+        { name: "EVIDENZIATORE GIALLO", code: "150.601", pack: 10 },
+        { name: "FALDONE / RACCOGLITORE", code: "219.756", pack: 6 },
+        { name: "POST-IT", code: "19.735.702", pack: 3 },
+        { name: "NASTRO IMBALLO TRASP.", code: "7.461.442", pack: 6 },
+        { name: "FORBICI", code: "1.493.349", pack: 1 },
+        { name: "BUSTE TRASP. X RACCOGLITORE", code: "119.374", pack: 50 },
+        { name: "PETTORINE VERDI ALTA VIS.", code: "13.647.137", pack: 10 },
+        { name: "BACHECA CON VETRINA", code: "8.151.631", pack: 1 },
+        { name: "CUTTER / TAGLIERINO", code: "3.339.192", pack: 1 },
+        { name: "DISPENSER SCRIVANIA SCOTCH", code: "316.923", pack: 1 },
+        { name: "SCOTCH X DISPENSER", code: "237.177", pack: 10 },
+        { name: "RIGHELLO DA 30 CM", code: "333.944", pack: 1 },
+        { name: "PUNTI PER CUCITRICE", code: "3.779.591", pack: 1000 },
+        { name: "CUCITRICE BIANCA", code: "6.056.673", pack: 1 },
+        { name: "LEVAPUNTI", code: "216.712", pack: 1 }
+    ];
+
+    CATALOG.sort((a, b) => a.name.localeCompare(b.name));
+
+    let orderList = [];
+    let currentItem = null;
+
+    // --- KEYS PER SALVATAGGIO ---
+    const STORAGE_LIST_KEY = 'statOrder_List_v2';
+    const STORAGE_META_KEY = 'statOrder_Meta_v2';
+
+    window.onload = function() {
+        populateSelect();
+        loadData(); 
+    };
+
+    // --- NUOVA FUNZIONE PER TASTO INVIO ---
+    function checkEnter(event) {
+        if (event.key === "Enter") {
+            event.preventDefault(); // Ferma comportamenti strani del browser
+            addItem(); // Chiama la funzione di aggiunta
+        }
+    }
+
+    function saveData() {
+        localStorage.setItem(STORAGE_LIST_KEY, JSON.stringify(orderList));
+        
+        const meta = {
+            reqName: document.getElementById('reqName').value,
+            reqDate: document.getElementById('reqDate').value,
+            shipSite: document.getElementById('shipSite').value,
+            shipStreet: document.getElementById('shipStreet').value,
+            shipNum: document.getElementById('shipNum').value,
+            shipZip: document.getElementById('shipZip').value,
+            shipCity: document.getElementById('shipCity').value,
+            shipProv: document.getElementById('shipProv').value,
+            shipContact: document.getElementById('shipContact').value,
+            shipPhone: document.getElementById('shipPhone').value
+        };
+        localStorage.setItem(STORAGE_META_KEY, JSON.stringify(meta));
+    }
+
+    function loadData() {
+        const meta = localStorage.getItem(STORAGE_META_KEY);
+        if (meta) {
+            const d = JSON.parse(meta);
+            document.getElementById('reqName').value = d.reqName || "";
+            document.getElementById('reqDate').value = d.reqDate || "";
+            document.getElementById('shipSite').value = d.shipSite || "";
+            document.getElementById('shipStreet').value = d.shipStreet || "";
+            document.getElementById('shipNum').value = d.shipNum || "";
+            document.getElementById('shipZip').value = d.shipZip || "";
+            document.getElementById('shipCity').value = d.shipCity || "";
+            document.getElementById('shipProv').value = d.shipProv || "";
+            document.getElementById('shipContact').value = d.shipContact || "";
+            document.getElementById('shipPhone').value = d.shipPhone || "";
+            
+            if(!d.reqDate) document.getElementById('reqDate').valueAsDate = new Date();
+        } else {
+            document.getElementById('reqDate').valueAsDate = new Date();
+        }
+
+        const savedList = localStorage.getItem(STORAGE_LIST_KEY);
+        if (savedList) {
+            orderList = JSON.parse(savedList);
+            renderList();
+        }
+    }
+
+    function populateSelect() {
+        const select = document.getElementById('prodSelect');
+        CATALOG.forEach((item, index) => {
+            let opt = document.createElement('option');
+            opt.value = index; 
+            opt.innerHTML = item.name;
+            select.appendChild(opt);
+        });
+    }
+
+    function updateProductDetails() {
+        const idx = document.getElementById('prodSelect').value;
+        const qtyInput = document.getElementById('prodQty');
+        const packDisplay = document.getElementById('packCalcDisplay');
+        const errorMsg = document.getElementById('qtyError');
+
+        qtyInput.value = "";
+        packDisplay.innerText = "";
+        errorMsg.style.display = "none";
+
+        if (idx === "") {
+            document.getElementById('prodCode').value = "";
+            document.getElementById('prodPackSize').value = "";
+            currentItem = null;
+            return;
+        }
+
+        currentItem = CATALOG[idx];
+        document.getElementById('prodCode').value = currentItem.code;
+        
+        if (currentItem.pack > 1) {
+            document.getElementById('prodPackSize').value = `1 Conf. da ${currentItem.pack} pz`;
+        } else {
+            document.getElementById('prodPackSize').value = `Vendita Singola (1 pz)`;
+        }
+        
+        // Focus automatico sul campo quantità dopo aver scelto il prodotto
+        setTimeout(() => qtyInput.focus(), 100);
+    }
+
+    function checkValidation() {
+        if (!currentItem) return;
+        
+        const qty = parseInt(document.getElementById('prodQty').value);
+        const errorMsg = document.getElementById('qtyError');
+        const packDisplay = document.getElementById('packCalcDisplay');
+
+        if (isNaN(qty) || qty <= 0) {
+            packDisplay.innerText = "";
+            return;
+        }
+
+        const remainder = qty % currentItem.pack;
+        const packs = qty / currentItem.pack;
+
+        if (remainder !== 0) {
+            errorMsg.style.display = "block";
+            let nextMulti = Math.ceil(qty / currentItem.pack) * currentItem.pack;
+            errorMsg.innerText = `⚠️ Multiplo errato (Conf. da ${currentItem.pack}). Valore corretto vicino: ${nextMulti}`;
+            packDisplay.innerText = "";
+            return false;
+        } else {
+            errorMsg.style.display = "none";
+            packDisplay.innerText = `✅ OK: Corrisponde a ${packs} confezioni da ordinare.`;
+            return true;
+        }
+    }
+
+    function addItem() {
+        if (!currentItem) { alert("Seleziona un prodotto."); return; }
+        const qty = parseInt(document.getElementById('prodQty').value);
+        if (!qty || qty <= 0) { alert("Inserisci una quantità valida."); return; }
+        
+        // La validazione è bloccante qui
+        if (checkValidation() === false) {
+            alert(`Quantità non valida. Deve essere multiplo di ${currentItem.pack}.`);
+            return;
+        }
+
+        orderList.push({
+            id: Date.now(),
+            name: currentItem.name,
+            code: currentItem.code,
+            packSize: currentItem.pack,
+            qty: qty,
+            packsCalc: (qty / currentItem.pack)
+        });
+
+        // Reset solo parte prodotto
+        document.getElementById('prodSelect').value = "";
+        updateProductDetails(); 
+        renderList();
+        saveData(); 
+    }
+
+    function renderList() {
+        const tbody = document.getElementById('orderBody');
+        tbody.innerHTML = "";
+        
+        orderList.forEach(item => {
+            let tr = document.createElement('tr');
+            let packsText = item.packSize > 1 ? `<strong>${item.packsCalc}</strong> Conf.` : "-";
+
+            tr.innerHTML = `
+                <td><span class="code-badge">${item.code}</span></td>
+                <td>
+                    <strong>${item.name}</strong><br>
+                    <span style="font-size:0.8em; color:#666;">Conf. standard: ${item.packSize} pz</span>
+                </td>
+                <td style="font-size:1.1em;">${item.qty}</td>
+                <td>${packsText}</td>
+                <td style="text-align:right;">
+                    <button class="btn-delete" onclick="removeItem(${item.id})">X</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        document.getElementById('totalItems').innerText = orderList.length;
+    }
+
+    function removeItem(id) {
+        orderList = orderList.filter(i => i.id !== id);
+        renderList();
+        saveData();
+    }
+
+    function resetApp() {
+        if(confirm("Vuoi svuotare la lista articoli? (I dati di spedizione non verranno cancellati)")) {
+            orderList = [];
+            localStorage.removeItem(STORAGE_LIST_KEY);
+            document.getElementById('prodSelect').value = "";
+            updateProductDetails();
+            renderList();
+        }
+    }
+
+    async function generatePDF() {
+        if (orderList.length === 0) {
+            alert("La lista è vuota!"); return;
+        }
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        
+        const reqName = document.getElementById('reqName').value || "-";
+        const reqDate = document.getElementById('reqDate').value;
+        const dateFmt = reqDate.split('-').reverse().join('/');
+        
+        const sSite = document.getElementById('shipSite').value || "";
+        const sStreet = document.getElementById('shipStreet').value || "";
+        const sNum = document.getElementById('shipNum').value || "";
+        const sZip = document.getElementById('shipZip').value || "";
+        const sCity = document.getElementById('shipCity').value || "";
+        const sProv = document.getElementById('shipProv').value || "";
+        const sContact = document.getElementById('shipContact').value || "";
+        const sPhone = document.getElementById('shipPhone').value || "";
+
+        doc.setFillColor(11, 45, 81);
+        doc.rect(0, 0, 210, 30, "F");
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(20);
+        doc.setFont("helvetica", "bold");
+        doc.text("PRE-ORDINE CANCELLERIA", 105, 18, null, null, "center");
+        
+        doc.setTextColor(0, 0, 0);
+        doc.setFont("helvetica", "normal");
+        
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "bold");
+        doc.text("RICHIEDENTE:", 14, 40);
+        doc.setFont("helvetica", "normal");
+        doc.text(reqName, 14, 45);
+        
+        doc.setFont("helvetica", "bold");
+        doc.text("DATA RICHIESTA:", 14, 55);
+        doc.setFont("helvetica", "normal");
+        doc.text(dateFmt, 14, 60);
+
+        const rightColX = 110;
+        doc.setFont("helvetica", "bold");
+        doc.text("DESTINAZIONE MERCE:", rightColX, 40);
+        
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        
+        let cursorY = 45;
+        if(sSite) { doc.text(sSite, rightColX, cursorY); cursorY += 4; }
+        doc.text(`${sStreet} ${sNum}`, rightColX, cursorY); cursorY += 4;
+        doc.text(`${sZip} ${sCity} (${sProv})`, rightColX, cursorY); cursorY += 6;
+        
+        if(sContact) { doc.text(`Rif: ${sContact}`, rightColX, cursorY); cursorY += 4; }
+        if(sPhone) { doc.text(`Tel: ${sPhone}`, rightColX, cursorY); }
+
+        doc.setDrawColor(200);
+        doc.line(14, 75, 196, 75);
+
+        let tableBody = orderList.map(item => [
+            item.code,
+            item.name,
+            item.packSize > 1 ? `${item.packSize} pz` : "Singolo",
+            item.qty.toString(), 
+            item.packsCalc.toString()
+        ]);
+
+        doc.autoTable({
+            startY: 80,
+            head: [['Codice Lyreco', 'Prodotto', 'Conf. Std', 'Pezzi Richiesti', 'Da Ordinare (Conf.)']],
+            body: tableBody,
+            theme: 'grid',
+            headStyles: { 
+                fillColor: [11, 45, 81], 
+                halign: 'center',
+                valign: 'middle',
+                fontSize: 10
+            },
+            columnStyles: {
+                0: { fontStyle: 'bold', halign: 'center', cellWidth: 35 }, 
+                1: { cellWidth: 'auto' }, 
+                2: { halign: 'center', cellWidth: 25 },
+                3: { halign: 'center', cellWidth: 30, fontStyle: 'bold' },
+                4: { fontStyle: 'bold', halign: 'center', fillColor: [253, 240, 213], cellWidth: 35 }
+            },
+            styles: { 
+                fontSize: 10,
+                cellPadding: 4, 
+                valign: 'middle',
+                overflow: 'linebreak'
+            }
+        });
+
+        let finalY = doc.lastAutoTable.finalY + 15;
+        doc.setFontSize(9);
+        doc.setTextColor(100);
+        doc.text("Note per Ufficio Acquisti:", 14, finalY);
+        doc.text("- La colonna 'Da Ordinare' indica il numero di confezioni da inserire nel carrello Lyreco.", 14, finalY + 5);
+        
+        doc.save(`Ordine_${reqName.replace(/ /g,'_')}_${dateFmt.replace(/\//g,'-')}.pdf`);
+    }
+</script>
+
+</body>
+</html>
